@@ -19,5 +19,6 @@ setup(
         "pathlib",
         "docker",
         "pyyaml",
+        "logging"
     ],
 )

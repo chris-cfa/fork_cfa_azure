@@ -1,10 +1,12 @@
 import datetime
 import subprocess as sp
+import logging
 
 import toml
 
 from cfa_azure import helpers
 
+logger = logging.getLogger(__name__)
 
 def create_pool(
     pool_id: str,

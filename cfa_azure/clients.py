@@ -1,9 +1,24 @@
 import datetime
 import json
+import logging
+import sys
 
 from azure.core.exceptions import HttpResponseError
 
 from cfa_azure import batch, helpers
+
+logger = logging.getLogger(__name__)
+run_time = datetime.datetime.now()
+now_string = f"{run_time:%Y-%m-%d_%H:%M:%S%z}"
+# Logging
+logfile = join("logs_", f"{now_string}.log")
+logging.basicConfig(
+    level=get_log_level(),
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(logfile),
+        ],
+    )
 
 
 class AzureClient:

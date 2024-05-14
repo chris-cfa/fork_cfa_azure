@@ -5,6 +5,7 @@ import os
 import subprocess as sp
 import time
 from pathlib import Path
+import logging
 
 import azure.batch.models as batchmodels
 import docker
@@ -22,6 +23,8 @@ from azure.mgmt.batch import BatchManagementClient
 from azure.storage.blob import BlobServiceClient, ContainerClient
 from docker.errors import DockerException
 from yaml import SafeLoader, dump, load
+
+logger = logging.getLogger(__name__)
 
 
 def read_config(config_path: str = "./configuration.toml"):
