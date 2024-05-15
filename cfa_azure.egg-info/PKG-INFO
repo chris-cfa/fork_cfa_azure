@@ -16,3 +16,4 @@ Requires-Dist: pandas
 Requires-Dist: pathlib
 Requires-Dist: docker
 Requires-Dist: pyyaml
+Requires-Dist: logging

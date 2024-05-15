@@ -1,12 +1,13 @@
 import datetime
-import subprocess as sp
 import logging
+import subprocess as sp
 
 import toml
 
 from cfa_azure import helpers
 
 logger = logging.getLogger(__name__)
+
 
 def create_pool(
     pool_id: str,
@@ -102,7 +103,9 @@ def create_pool(
 
     end_time = datetime.datetime.now()
     creation_time = round((end_time - start_time).total_seconds(), 2)
-    logger.debug(f"Pool creation process completed in {creation_time} seconds.")
+    logger.debug(
+        f"Pool creation process completed in {creation_time} seconds."
+    )
 
     return {
         "pool_id": pool_id,
@@ -126,7 +129,9 @@ def upload_files_to_container(
     Returns:
         list: List of input file names that were uploaded.
     """
-    logger.debug(f"Starting to upload files to container: {input_container_name}")
+    logger.debug(
+        f"Starting to upload files to container: {input_container_name}"
+    )
     input_files = []  # Empty list of input files
     for _folder in folder_names:
         # Add uploaded file names to input files list
@@ -139,7 +144,9 @@ def upload_files_to_container(
         )
         input_files += uploaded_files
         logger.debug(f"Uploaded {len(uploaded_files)} files from {_folder}.")
-    logger.info(f"Finished uploading files to container: {input_container_name}")
+    logger.info(
+        f"Finished uploading files to container: {input_container_name}"
+    )
     return input_files
 
 
@@ -174,16 +181,22 @@ def run_job(
             if f not in container_files:
                 missing_files.append(f)  # Gather list of missing files
         if missing_files:
-            logger.debug("The following input files are missing from the container:")
+            logger.debug(
+                "The following input files are missing from the container:"
+            )
             for m in missing_files:
                 logger.debug(f"    {m}")
-            logger.warning("Not all input files exist in container. Closing job.")
+            logger.warning(
+                "Not all input files exist in container. Closing job."
+            )
             return None
     else:
         input_files = helpers.list_files_in_container(
             input_container_name, sp_credential, config
         )
-        logger.info(f"All files in container '{input_container_name}' will be used.")
+        logger.info(
+            f"All files in container '{input_container_name}' will be used."
+        )
 
     # Get the batch service client
     batch_client = helpers.get_batch_service_client(sp_secret, config)
@@ -216,7 +229,9 @@ def package_and_upload_dockerfile(config: dict):
     Args:
         config (dict): Config dictionary with container_account_name and container_name.
     """
-    logger.debug("Packaging and uploading Dockerfile to Azure Container Registry...")
+    logger.debug(
+        "Packaging and uploading Dockerfile to Azure Container Registry..."
+    )
     container_account_name = config["Container"]["container_account_name"]
     name_and_tag = config["Container"]["container_name"]
     # Execute the shell script to package and upload the container

@@ -1,8 +1,9 @@
 import datetime
 import json
 import logging
+import os
 import sys
-from os.path import join
+from os.path import exists, join
 
 from azure.core.exceptions import HttpResponseError
 
@@ -12,14 +13,20 @@ logger = logging.getLogger(__name__)
 run_time = datetime.datetime.now()
 now_string = f"{run_time:%Y-%m-%d_%H:%M:%S%z}"
 # Logging
-logfile = join("logs_", f"{now_string}.log")
+if not exists("logs"):
+    os.mkdir("logs")
+logfile = join("logs", f"{now_string}.log")
+FORMAT = "[%(levelname)s] %(asctime)s: %(message)s"
+
 logging.basicConfig(
-    level=get_log_level(),
+    level=logging.DEBUG,
+    format=FORMAT,
+    datefmt="%Y-%m-%d_%H:%M:%S%z",
     handlers=[
         logging.StreamHandler(sys.stdout),
         logging.FileHandler(logfile),
-        ]
-    )
+    ],
+)
 
 
 class AzureClient:
@@ -128,7 +135,9 @@ class AzureClient:
         """
         # check if debug and scaling mode match, otherwise alert the user
         if self.debug is True and mode == "autoscale":
-            logger.debug("Debugging is set to True and autoscale is desired...")
+            logger.debug(
+                "Debugging is set to True and autoscale is desired..."
+            )
             logger.debug("This is not possible.")
             logger.info(
                 "Either change debugging to False or set the scaling mode to fixed."
@@ -317,7 +326,9 @@ class AzureClient:
         logger.debug(
             f"Attempting to create a pool with {(self.config)['Batch']['pool_vm_size']} VMs."
         )
-        logger.debug("Verify the size of the VM is appropriate for the use case.")
+        logger.debug(
+            "Verify the size of the VM is appropriate for the use case."
+        )
         try:
             self.batch_mgmt_client.pool.create(
                 resource_group_name=self.resource_group_name,
