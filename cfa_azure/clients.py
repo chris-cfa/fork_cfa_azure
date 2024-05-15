@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import sys
+from os.path import join
 
 from azure.core.exceptions import HttpResponseError
 
@@ -17,7 +18,7 @@ logging.basicConfig(
     handlers=[
         logging.StreamHandler(sys.stdout),
         logging.FileHandler(logfile),
-        ],
+        ]
     )
 
 
@@ -54,8 +55,8 @@ class AzureClient:
         try:
             self.account_name = self.config["Batch"]["batch_account_name"]
         except Exception:
-            print("Batch account name not found in config.")
-            print(
+            logger.warning("Batch account name not found in config.")
+            logger.debug(
                 "Please add the batch_account_name in the Batch section of the config."
             )
 
@@ -64,7 +65,7 @@ class AzureClient:
                 "resource_group"
             ]
         except Exception as e:
-            print(e)
+            logger.warning(e)
 
         # get credentials
         self.sp_secret = helpers.get_sp_secret(self.config)
@@ -78,7 +79,7 @@ class AzureClient:
 
         # create batch service client
         self.batch_client = helpers.get_batch_service_client(self.config)
-        print("Client initialized! Happy coding!")
+        logger.debug("Client initialized! Happy coding!")
 
     def set_debugging(self, debug: bool) -> None:
         """required method that determines whether debugging is on or off. Debug = True for 'on', debug = False for 'off'.
@@ -87,14 +88,14 @@ class AzureClient:
             debug (bool): True to turn debugging on, False to turn debugging off.
         """
         if debug is not True and debug is not False:
-            print("Please use True or False to set debugging mode.")
+            logger.info("Please use True or False to set debugging mode.")
         elif debug is True:
             self.debug = debug
-            print("You turned debugging on.")
-            print("This automatically disables autoscaling.")
+            logger.debug("You turned debugging on.")
+            logger.debug("This automatically disables autoscaling.")
             self.scaling = "fixed"
             print("*" * 50)
-            print(
+            logger.info(
                 "Jobs must be closed manually. Any jobs left running will continue to be billed as resources, which can rack up cloud costs."
             )
             print("*" * 50)
@@ -127,9 +128,9 @@ class AzureClient:
         """
         # check if debug and scaling mode match, otherwise alert the user
         if self.debug is True and mode == "autoscale":
-            print("Debugging is set to True and autoscale is desired...")
-            print("This is not possible.")
-            print(
+            logger.debug("Debugging is set to True and autoscale is desired...")
+            logger.debug("This is not possible.")
+            logger.info(
                 "Either change debugging to False or set the scaling mode to fixed."
             )
             return None
@@ -171,7 +172,7 @@ class AzureClient:
                 max_autoscale_nodes,
             )
         else:
-            print("Please enter 'fixed' or 'autoscale' as the mode.")
+            logger.warning("Please enter 'fixed' or 'autoscale' as the mode.")
 
     def create_input_container(
         self, name: str, input_mount_dir: str = "input"
@@ -239,7 +240,7 @@ class AzureClient:
         )
         input_mount_dir = helpers.format_rel_path(input_mount_dir)
         if not container_client.exists():
-            print(
+            logger.warning(
                 f"Container [{name}] does not exist. Please create it if desired."
             )
         else:
@@ -262,7 +263,7 @@ class AzureClient:
             container=name
         )
         if not container_client.exists():
-            print(
+            logger.warning(
                 f"Container [{name}] does not exist. Please create it if desired."
             )
         else:
@@ -283,7 +284,7 @@ class AzureClient:
             container=name
         )
         if not container_client.exists():
-            print(
+            logger.warning(
                 f"Container [{name}] does not exist. Please create it if desired."
             )
         else:
@@ -313,10 +314,10 @@ class AzureClient:
             # set scaling
             self.scaling = "autoscale"
             # set autoscale formula from default
-        print(
+        logger.debug(
             f"Attempting to create a pool with {(self.config)['Batch']['pool_vm_size']} VMs."
         )
-        print("Verify the size of the VM is appropriate for the use case.")
+        logger.debug("Verify the size of the VM is appropriate for the use case.")
         try:
             self.batch_mgmt_client.pool.create(
                 resource_group_name=self.resource_group_name,
@@ -324,10 +325,10 @@ class AzureClient:
                 pool_name=self.pool_name,
                 parameters=self.pool_parameters,
             )
-            print(f"Pool {pool_name!r} created.")
+            logger.debug(f"Pool {pool_name!r} created.")
         except HttpResponseError as error:
             if "PropertyCannotBeUpdated" in error.message:
-                print(f"Pool {pool_name!r} already exists")
+                logger.warning(f"Pool {pool_name!r} already exists")
             else:
                 raise error
 
@@ -356,7 +357,7 @@ class AzureClient:
             )
             with open(file_name, "rb") as data:
                 blob_client.upload_blob(data, overwrite=True)
-            print(f"Uploaded {file_name!r} to container {blob_c_name}.")
+            logger.debug(f"Uploaded {file_name!r} to container {blob_c_name}.")
             self.files.append(shortname)
 
     def upload_files_in_folder(
@@ -389,7 +390,7 @@ class AzureClient:
             verbose,
             force_upload,
         )
-        print(f"uploaded {_files}")
+        logger.debug(f"uploaded {_files}")
         self.files += _files
         return _files
 
@@ -404,7 +405,7 @@ class AzureClient:
         """
         # make sure the job_id does not have spaces
         job_id_r = job_id.replace(" ", "")
-        print(f"job_id: {job_id_r}")
+        logger.debug(f"job_id: {job_id_r}")
 
         # add the job to the pool
         helpers.add_job(
@@ -448,7 +449,7 @@ class AzureClient:
             elif self.files:
                 in_files = self.files
             else:
-                print(
+                logger.warning(
                     "use_uploaded_files set to True but no input files found."
                 )
         else:
@@ -514,16 +515,16 @@ class AzureClient:
             self.pool_name,
             self.batch_mgmt_client,
         )
-        print(monitor)
+        logger.debug(monitor)
 
         # delete job automatically if debug is false
         if self.debug is False:
-            print("Cleaning up - deleting job")
+            logger.debug("Cleaning up - deleting job")
             # Delete job
             self.batch_client.job.delete(job_id)
         elif self.debug is True:
-            print("Job complete. Time to debug. Job not deleted.")
-            print("**Remember to close out the job when debugging.**")
+            logger.info("Job complete. Time to debug. Job not deleted.")
+            logger.info("**Remember to close out the job when debugging.**")
 
     def check_job_status(self, job_id: str) -> None:
         """checks various components of a job
@@ -536,17 +537,17 @@ class AzureClient:
         """
         # whether job exists
         if helpers.check_job_exists(job_id, self.batch_client):
-            print(f"Job {job_id} exists.")
+            logger.info(f"Job {job_id} exists.")
             c_tasks = helpers.get_completed_tasks(job_id, self.batch_client)
-            print("Task info:")
-            print(c_tasks)
+            logger.debug("Task info:")
+            logger.debug(c_tasks)
             if helpers.check_job_complete(job_id, self.batch_client):
-                print("Job completed.")
+                logger.info("Job completed.")
             else:
                 j_state = helpers.get_job_state(job_id, self.batch_client)
-                print(f"Job in {j_state} state")
+                logger.debug(f"Job in {j_state} state")
         else:
-            print(f"Job {job_id} does not exist.")
+            logger.info(f"Job {job_id} does not exist.")
 
     def delete_job(self, job_id: str) -> None:
         """delete a specified job
@@ -555,7 +556,7 @@ class AzureClient:
             job_id (str): job id of job to terminate and delete
         """
         self.batch_client.job.delete(job_id)
-        print(f"Job {job_id} deleted.")
+        logger.debug(f"Job {job_id} deleted.")
 
     def package_and_upload_dockerfile(
         self,
@@ -683,11 +684,11 @@ class AzureClient:
                 self.batch_mgmt_client,
             )
             vm_size = str(json.loads(_info)["vm_size"])
-            print(f"Pool {pool_name} uses {vm_size} VMs.")
-            print("Make sure the VM size matches the use case.\n")
+            logger.debug(f"Pool {pool_name} uses {vm_size} VMs.")
+            logger.debug("Make sure the VM size matches the use case.\n")
         else:
-            print(f"Pool {pool_name} does not exist.")
-            print("Choose an existing pool or create a new pool.")
+            logger.debug(f"Pool {pool_name} does not exist.")
+            logger.debug("Choose an existing pool or create a new pool.")
 
     def get_pool_info(self) -> dict:
         """Retrieve information about pool used by client.
@@ -733,7 +734,7 @@ class AzureClient:
 
     def list_blob_files(self, blob_container: str = None):
         if not self.mounts and blob_container is None:
-            print(
+            logger.warning(
                 "Please specify a blob container or have mounts associated with the client."
             )
             return None
