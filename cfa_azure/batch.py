@@ -29,27 +29,27 @@ def create_pool(
         json: JSON containing pool_ID and creation_time.
     """
 
-    print("Starting the pool creation process...")
+    logger.debug("Starting the pool creation process...")
 
     # Load config
-    print("Loading configuration...")
+    logger.debug("Loading configuration...")
     config = helpers.read_config(config_path)
 
     # Get credentials
-    print("Retrieving service principal credentials...")
+    logger.debug("Retrieving service principal credentials...")
     sp_secret = helpers.get_sp_secret(config)
     sp_credential = helpers.get_sp_credential(sp_secret, config)
 
     # Create blob service account
-    print("Setting up Blob service client...")
+    logger.debug("Setting up Blob service client...")
     blob_service_client = helpers.get_blob_service_client(
         sp_credential, config
     )
 
-    print("Setting up Azure Batch management client...")
+    logger.debug("Setting up Azure Batch management client...")
     batch_mgmt_client = helpers.get_batch_mgmt_client(sp_credential, config)
 
-    print("Preparing batch pool configuration...")
+    logger.debug("Preparing batch pool configuration...")
     batch_json = helpers.get_batch_pool_json(
         input_container_name,
         output_container_name,
@@ -70,25 +70,25 @@ def create_pool(
         )
         exists = 1
     except Exception as e:
-        print(e)
+        logger.exception(e)
     # check if user wants to proceed
 
     if exists == 1:
-        print(f"{pool_id} already exists.")
-        print(f"Created: {pool_info.creation_time}")
-        print(f"Last modified: {pool_info.last_modified}")
-        print(f"VM size: {pool_info.vm_size}")
+        logger.debug(f"{pool_id} already exists.")
+        logger.debug(f"Created: {pool_info.creation_time}")
+        logger.debug(f"Last modified: {pool_info.last_modified}")
+        logger.debug(f"VM size: {pool_info.vm_size}")
 
     # Check if user wants to proceed if the pool already exists
     if exists == 1:
         cont = input("Do you still want to use this pool? [Y/n]:  ")
         if cont.lower() != "y":
-            print(
+            logger.info(
                 "No pool created since it already exists. Exiting the process."
             )
             return None
 
-    print("Creating input and output containers...")
+    logger.debug("Creating input and output containers...")
 
     start_time = datetime.datetime.now()
 
@@ -96,13 +96,13 @@ def create_pool(
         blob_service_client, input_container_name, output_container_name
     )
 
-    print(f"Creating the pool '{pool_id}'...")
+    logger.debug(f"Creating the pool '{pool_id}'...")
     pool_id = helpers.create_batch_pool(batch_mgmt_client, batch_json)
-    print(f"Pool '{pool_id}' created successfully.")
+    logger.debug(f"Pool '{pool_id}' created successfully.")
 
     end_time = datetime.datetime.now()
     creation_time = round((end_time - start_time).total_seconds(), 2)
-    print(f"Pool creation process completed in {creation_time} seconds.")
+    logger.debug(f"Pool creation process completed in {creation_time} seconds.")
 
     return {
         "pool_id": pool_id,
@@ -126,7 +126,7 @@ def upload_files_to_container(
     Returns:
         list: List of input file names that were uploaded.
     """
-    print(f"Starting to upload files to container: {input_container_name}")
+    logger.debug(f"Starting to upload files to container: {input_container_name}")
     input_files = []  # Empty list of input files
     for _folder in folder_names:
         # Add uploaded file names to input files list
@@ -138,8 +138,8 @@ def upload_files_to_container(
             force_upload,
         )
         input_files += uploaded_files
-        print(f"Uploaded {len(uploaded_files)} files from {_folder}.")
-    print(f"Finished uploading files to container: {input_container_name}")
+        logger.debug(f"Uploaded {len(uploaded_files)} files from {_folder}.")
+    logger.info(f"Finished uploading files to container: {input_container_name}")
     return input_files
 
 
@@ -154,7 +154,7 @@ def run_job(
     config_path: str = "./configuration.toml",
     debug: bool = True,
 ):
-    print(f"Starting job: {job_id}")
+    logger.info(f"Starting job: {job_id}")
     # Load config
     config = toml.load(config_path)
 
@@ -163,7 +163,7 @@ def run_job(
     sp_credential = helpers.get_sp_credential(sp_secret)
 
     # Check input_files
-    print("Checking input files against container contents...")
+    logger.debug("Checking input files against container contents...")
     if input_files:
         missing_files = []
         container_files = helpers.list_files_in_container(
@@ -174,39 +174,39 @@ def run_job(
             if f not in container_files:
                 missing_files.append(f)  # Gather list of missing files
         if missing_files:
-            print("The following input files are missing from the container:")
+            logger.debug("The following input files are missing from the container:")
             for m in missing_files:
-                print(f"    {m}")
-            print("Not all input files exist in container. Closing job.")
+                logger.debug(f"    {m}")
+            logger.warning("Not all input files exist in container. Closing job.")
             return None
     else:
         input_files = helpers.list_files_in_container(
             input_container_name, sp_credential, config
         )
-        print(f"All files in container '{input_container_name}' will be used.")
+        logger.info(f"All files in container '{input_container_name}' will be used.")
 
     # Get the batch service client
     batch_client = helpers.get_batch_service_client(sp_secret, config)
 
     # Add the job to the pool
-    print(f"Adding job '{job_id}' to the pool...")
+    logger.info(f"Adding job '{job_id}' to the pool...")
     helpers.add_job(job_id, batch_client, config)
 
     # Add the tasks to the job
-    print(f"Adding tasks to job '{job_id}'...")
+    logger.info(f"Adding tasks to job '{job_id}'...")
     helpers.add_task_to_job(
         job_id, task_id_base, docker_cmd, input_files, batch_client, config
     )
 
     # Monitor tasks
-    print(f"Monitoring tasks for job '{job_id}'...")
+    logger.debug(f"Monitoring tasks for job '{job_id}'...")
     monitor = helpers.monitor_tasks(batch_client, job_id, timeout)
-    print(monitor)
+    logger.debug(monitor)
 
     if debug:
-        print("Job complete. Time to debug. Job not deleted.")
+        logger.debug("Job complete. Time to debug. Job not deleted.")
     else:
-        print("Cleaning up - deleting job.")
+        logger.debug("Cleaning up - deleting job.")
         batch_client.job.delete(job_id)
 
 
@@ -216,7 +216,7 @@ def package_and_upload_dockerfile(config: dict):
     Args:
         config (dict): Config dictionary with container_account_name and container_name.
     """
-    print("Packaging and uploading Dockerfile to Azure Container Registry...")
+    logger.debug("Packaging and uploading Dockerfile to Azure Container Registry...")
     container_account_name = config["Container"]["container_account_name"]
     name_and_tag = config["Container"]["container_name"]
     # Execute the shell script to package and upload the container
@@ -229,6 +229,6 @@ def package_and_upload_dockerfile(config: dict):
         ]
     )
     if result == 0:
-        print("Dockerfile packaged and uploaded successfully.")
+        logger.debug("Dockerfile packaged and uploaded successfully.")
     else:
-        print("Failed to package and upload Dockerfile.")
+        logger.info("Failed to package and upload Dockerfile.")
